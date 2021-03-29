@@ -40,17 +40,18 @@ void system_init()
 uint8_t system_control_get_state()
 {
   uint8_t control_state = 0;
-  uint8_t pin = (CONTROL_PIN & CONTROL_MASK);
+  uint8_t pin = (CONTROL_PIN & CONTROL_MASK) ^ CONTROL_MASK;
   #ifdef INVERT_CONTROL_PIN_MASK
     pin ^= INVERT_CONTROL_PIN_MASK;
   #endif
   if (pin) {
     #ifdef ENABLE_SAFETY_DOOR_INPUT_PIN
-      if (bit_isfalse(pin,(1<<CONTROL_SAFETY_DOOR_BIT))) { control_state |= CONTROL_PIN_INDEX_SAFETY_DOOR; }
+      if (bit_istrue(pin,(1<<CONTROL_SAFETY_DOOR_BIT))) { control_state |= CONTROL_PIN_INDEX_SAFETY_DOOR; }
+    #else
+      if (bit_istrue(pin,(1<<CONTROL_FEED_HOLD_BIT))) { control_state |= CONTROL_PIN_INDEX_FEED_HOLD; }
     #endif
-    if (bit_isfalse(pin,(1<<CONTROL_RESET_BIT))) { control_state |= CONTROL_PIN_INDEX_RESET; }
-    if (bit_isfalse(pin,(1<<CONTROL_FEED_HOLD_BIT))) { control_state |= CONTROL_PIN_INDEX_FEED_HOLD; }
-    if (bit_isfalse(pin,(1<<CONTROL_CYCLE_START_BIT))) { control_state |= CONTROL_PIN_INDEX_CYCLE_START; }
+    if (bit_istrue(pin,(1<<CONTROL_RESET_BIT))) { control_state |= CONTROL_PIN_INDEX_RESET; }
+    if (bit_istrue(pin,(1<<CONTROL_CYCLE_START_BIT))) { control_state |= CONTROL_PIN_INDEX_CYCLE_START; }
   }
   return(control_state);
 }
@@ -66,13 +67,15 @@ ISR(CONTROL_INT_vect)
   if (pin) {
     if (bit_istrue(pin,CONTROL_PIN_INDEX_RESET)) {
       mc_reset();
-    } else if (bit_istrue(pin,CONTROL_PIN_INDEX_CYCLE_START)) {
+    }
+    if (bit_istrue(pin,CONTROL_PIN_INDEX_CYCLE_START)) {
       bit_true(sys_rt_exec_state, EXEC_CYCLE_START);
+    }
     #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
-      } else if (bit_istrue(pin,CONTROL_PIN_INDEX_FEED_HOLD)) {
+      if (bit_istrue(pin,CONTROL_PIN_INDEX_FEED_HOLD)) {
         bit_true(sys_rt_exec_state, EXEC_FEED_HOLD);
     #else
-      } else if (bit_istrue(pin,CONTROL_PIN_INDEX_SAFETY_DOOR)) {
+      if (bit_istrue(pin,CONTROL_PIN_INDEX_SAFETY_DOOR)) {
         bit_true(sys_rt_exec_state, EXEC_SAFETY_DOOR);
     #endif
     }
